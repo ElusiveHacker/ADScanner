@@ -336,7 +336,6 @@ done
 
 # Run netexec LDAP modules
 ldap_modules=(
-    "whoami"
     "get-desc-users"
     "user-desc"
     "get-userPassword"
