@@ -107,7 +107,7 @@ run_ldap_queries() {
             fi
             eval "$ldapsearch_cmd" | tee -a "$OUTPUT_DIR/ldapsearch-$port.output"
             # Run nmap rootdse script
-            nmap_cmd="nmap --script=ldap-rootdse -p $port $IP"
+            nmap_cmd="nmap -sSV --script=ldap-rootdse -p $port $IP"
             eval "$nmap_cmd" | tee -a "$OUTPUT_DIR/nmap-ldap-rootdse-$port.output"
         fi
     done
