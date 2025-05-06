@@ -69,7 +69,7 @@ chmod +x ADScanner.sh
 
 `./ADScanner.sh -i 192.168.1.100`
 
-Authenticated enumeration with domain:
+### Authenticated enumeration with domain:
 
 `./ADScanner.sh -i 192.168.1.100 -u "admin" -p "Password123" -d "EXAMPLE.COM"`
 
