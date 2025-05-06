@@ -31,29 +31,29 @@ This Bash wrapper script automates the enumeration of a single host using tools 
 - **Dependencies**: Bash with `/dev/tcp` support for port checking.
 - **Permissions**: Run as a user with sufficient privileges for network scanning.
 
-Install dependencies on Debian/Ubuntu:
+## Install dependencies on Debian/Ubuntu:
 ```bash
 sudo apt update
 sudo apt install enum4linux nmap ldap-utils
 pip install enum4linux-ng netexec# ADScanner
 Scanning ADs for CTFs
 ```
-Clone the repository:
+## Clone the repository:
 ```bash
 git clone https://github.com/<your-username>/host-enum-script.git
 cd ADScanner
 ```
-Make the script executable:
+## Make the script executable:
 ```bash
 chmod +x ADScanner.sh
 ```
-Usage
+## Usage
 
-Run the script with the mandatory IP address and optional credentials/domain:
+### Run the script with the mandatory IP address and optional credentials/domain:
 
-./ADScanner.sh -i <IP> [-u <username>] [-p <password>] [-d <domain>]
+`./ADScanner.sh -i <IP> [-u <username>] [-p <password>] [-d <domain>]`
 
-Options
+## Options
 
 -i <IP>: Target IP address (mandatory).
 
@@ -63,9 +63,9 @@ Options
 
 -d <domain>: Domain name (e.g., EXAMPLE.COM) (optional).
 
-Examples
+## Examples
 
-Basic enumeration (no credentials):
+### Basic enumeration (no credentials):
 
 ./ADScanner.sh -i 192.168.1.100
 
@@ -73,7 +73,7 @@ Authenticated enumeration with domain:
 
 ./ADScanner.sh -i 192.168.1.100 -u "admin" -p "Password123" -d "EXAMPLE.COM"
 
-Output
+## Output
 
 Results are saved in a directory named enum_results_<IP> with files like:
 
@@ -83,7 +83,7 @@ netexec_smb_shares-445.output
 
 ldapsearch-389.output
 
-Notes
+## Notes
 The script assumes tools are in the system’s PATH.
 
 Anonymous LDAP binds are attempted if no credentials are provided, which may yield limited results.
@@ -92,15 +92,18 @@ Customize port lists or tool options (e.g., file patterns for netexec --spider) 
 
 Extend the script by adding tools like smbclient or additional netexec modules.
 
-Troubleshooting
+## Troubleshooting
+
 Tool not found: Ensure all required tools are installed and accessible.
 
 Port check fails: Verify network connectivity and firewall settings.
 
 Permission denied: Run the script with sudo if necessary for network operations.
 
-Contributing
+## Contributing
+
 Contributions are welcome! Please:
+
 Fork the repository.
 
 Create a feature branch (git checkout -b feature/YourFeature).
@@ -111,8 +114,8 @@ Push to the branch (git push origin feature/YourFeature).
 
 Open a pull request.
 
-License
-This project is licensed under the MIT License. See the LICENSE file for details.
+## License
+This project is licensed under the Apache 2 License. See the LICENSE file for details.
 Disclaimer
 This script is for educational and authorized testing purposes only. Unauthorized use against systems you do not own or have permission to scan may violate laws and policies. The author is not responsible for misuse or damages caused by this script.
 
