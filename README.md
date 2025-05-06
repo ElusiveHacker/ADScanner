@@ -55,64 +55,64 @@ chmod +x ADScanner.sh
 
 ## Options
 
-- **-i <IP>: Target IP address (mandatory).
+- -i <IP>: Target IP address (mandatory).
 
-- **-u <username>: Username for authenticated enumeration (optional).
+- -u <username>: Username for authenticated enumeration (optional).
 
-- **-p <password>: Password for authenticated enumeration (optional).
+- -p <password>: Password for authenticated enumeration (optional).
 
-- **-d <domain>: Domain name (e.g., EXAMPLE.COM) (optional).
+- -d <domain>: Domain name (e.g., EXAMPLE.COM) (optional).
 
 ## Examples
 
 ### Basic enumeration (no credentials):
 
-./ADScanner.sh -i 192.168.1.100
+`./ADScanner.sh -i 192.168.1.100`
 
 Authenticated enumeration with domain:
 
-./ADScanner.sh -i 192.168.1.100 -u "admin" -p "Password123" -d "EXAMPLE.COM"
+`./ADScanner.sh -i 192.168.1.100 -u "admin" -p "Password123" -d "EXAMPLE.COM"`
 
 ## Output
 
 Results are saved in a directory named enum_results_<IP> with files like:
 
-enum4linux-445.output
+- enum4linux-445.output
 
-netexec_smb_shares-445.output
+- netexec_smb_shares-445.output
 
-ldapsearch-389.output
+- ldapsearch-389.output
 
 ## Notes
-- **The script assumes tools are in the system’s PATH.
+- The script assumes tools are in the system’s PATH.
 
-- **Anonymous LDAP binds are attempted if no credentials are provided, which may yield limited results.
+- Anonymous LDAP binds are attempted if no credentials are provided, which may yield limited results.
 
-- **Customize port lists or tool options (e.g., file patterns for netexec --spider) in the script as needed.
+- Customize port lists or tool options (e.g., file patterns for netexec --spider) in the script as needed.
 
-- **Extend the script by adding tools like smbclient or additional netexec modules.
+- Extend the script by adding tools like smbclient or additional netexec modules.
 
 ## Troubleshooting
 
-- **Tool not found: Ensure all required tools are installed and accessible.
+- Tool not found: Ensure all required tools are installed and accessible.
 
-- **Port check fails: Verify network connectivity and firewall settings.
+- Port check fails: Verify network connectivity and firewall settings.
 
-- **Permission denied: Run the script with sudo if necessary for network operations.
+- Permission denied: Run the script with sudo if necessary for network operations.
 
 ## Contributing
 
 Contributions are welcome! Please:
 
-- **Fork the repository.
+- Fork the repository.
 
-- **Create a feature branch (git checkout -b feature/YourFeature).
+- Create a feature branch (git checkout -b feature/YourFeature).
 
-- **Commit changes (git commit -m "Add YourFeature").
+- Commit changes (git commit -m "Add YourFeature").
 
-- **Push to the branch (git push origin feature/YourFeature).
+- Push to the branch (git push origin feature/YourFeature).
 
-- **Open a pull request.
+- Open a pull request.
 
 ## License
 This project is licensed under the Apache 2 License. See the LICENSE file for details.
