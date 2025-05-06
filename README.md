@@ -8,15 +8,23 @@ This Bash wrapper script automates the enumeration of a single host using tools 
 
 - **Mandatory Input**: Target IP address.
 - **Optional Inputs**: Username, password, and domain name for authenticated enumeration.
+- **Tool Validation**: Checks if required tools (`enum4linux`, `enum4linux-ng`, `netexec`, `ldapsearch`, `nmap`) are installed.
 - **Port Checking**: Scans for open ports (SMB: 137, 138, 139, 445; LDAP: 389, 636; MSSQL: 1433; WinRM: 5985, 5986) before running tools.
 - **Connectivity Testing**: Verifies host reachability using `ping`.
+- **NetExec Credential Handling**:
+  - Uses provided credentials if both username and password are specified.
+  - If no credentials are provided, attempts:
+    - Blank username and password.
+    - Username `guest` with blank password.
+    - Username `guest` with password `guest`.
+  - Includes domain name (if provided) in all `netexec` commands.
 - **Supported Tools**:
   - `enum4linux -a`: Comprehensive SMB enumeration.
   - `enum4linux-ng`: Modern SMB enumeration.
   - `netexec smb`: Enumerates shares, RID brute-forcing, and spiders shares for files (e.g., `*.txt`, `*.conf`).
   - `netexec ldap`, `mssql`, `winrm`: Runs specific modules if respective ports are open.
   - `ldapsearch` and `nmap --script=ldap-rootdse`: Queries LDAP for hidden passwords and usernames when LDAP ports are open.
-- **Output Management**: Saves results in a directory (`enum_results_<IP>`) with separate files for each tool.
+- **Output Management**: Saves results in a directory (`enum_results_<IP>`) with separate files for each tool and credential attempt.
 - **Optimizations**: Limits scans to open ports, uses timeouts, and focuses on relevant file patterns for spidering.
 
 ## Prerequisites
