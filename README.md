@@ -81,7 +81,7 @@ chmod +x ADScanner.sh
 
 ### Basic enumeration (no credentials):
 
-`./ADScanner.sh -i 192.168.1.100`
+`sudo ./ADScanner.sh -i 192.168.1.100`
 
 ### Authenticated enumeration with domain:
 
