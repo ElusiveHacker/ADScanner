@@ -12,15 +12,31 @@ usage() {
     exit 1
 }
 
+# Function to check if a tool is installed
+check_tool() {
+    local tool=$1
+    if ! command -v "$tool" >/dev/null 2>&1; then
+        echo "Error: $tool is not installed. Please install it and try again."
+        exit 1
+    fi
+}
+
+# Check for required tools
+check_tool "enum4linux"
+check_tool "enum4linux-ng"
+check_tool "netexec"
+check_tool "ldapsearch"
+check_tool "nmap"
+
 # Parse command-line arguments
 while getopts "i:u:p:d:" opt; do
     case $opt in
         i) IP="$OPTARG" ;;
         u) USERNAME="$OPTARG" ;;
         p) PASSWORD="$OPTARG" ;;
-        d) DOMAIN="$OPTARG"ම 2>/dev/null
-        DOMAIN_OPT="-D $DOMAIN"
-        ;; 
+        d) DOMAIN="$OPTARG"
+           DOMAIN_OPT="-D $DOMAIN"
+           ;;
         \?) usage ;;
     esac
 done
@@ -84,14 +100,12 @@ run_ldap_queries() {
         if check_port "$IP" "$port"; then
             ldap_open=true
             echo "[+] Running LDAP queries on port $port..."
-            # Run ldapsearch if available
-            if command -v ldapsearch >/dev/null 2>&1; then
-                ldapsearch_cmd="ldapsearch -H ldap://$IP:$port -x -b '' -s base '(objectclass=*)' *"
-                if [ -n "$USERNAME" ] && [ -n "$PASSWORD" ]; then
-                    ldapsearch_cmd="$ldapsearch_cmd -D '$USERNAME' -w '$PASSWORD'"
-                fi
-                eval "$ldapsearch_cmd" | tee -a "$OUTPUT_DIR/ldapsearch-$port.output"
+            # Run ldapsearch
+            ldapsearch_cmd="ldapsearch -H ldap://$IP:$port -x -b '' -s base '(objectclass=*)' *"
+            if [ -n "$USERNAME" ] && [ -n "$PASSWORD" ]; then
+                ldapsearch_cmd="$ldapsearch_cmd -D '$USERNAME' -w '$PASSWORD'"
             fi
+            eval "$ldapsearch_cmd" | tee -a "$OUTPUT_DIR/ldapsearch-$port.output"
             # Run nmap rootdse script
             nmap_cmd="nmap --script=ldap-rootdse -p $port $IP"
             eval "$nmap_cmd" | tee -a "$OUTPUT_DIR/nmap-ldap-rootdse-$port.output"
