@@ -297,7 +297,7 @@ low_priv_modules=(
     "nopac"
     "spooler"
     "webdav"
-    #"zerologon"
+    "zerologon"
 )
 for module in "${low_priv_modules[@]}"; do
     module_name=$(echo "$module" | cut -d' ' -f1)
