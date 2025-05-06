@@ -35,7 +35,7 @@ while getopts "i:u:p:d:" opt; do
         u) USERNAME="$OPTARG" ;;
         p) PASSWORD="$OPTARG" ;;
         d) DOMAIN="$OPTARG"
-           DOMAIN_OPT="-D $DOMAIN"
+           DOMAIN_OPT="-d $DOMAIN"
            ;;
         \?) usage ;;
     esac
@@ -93,6 +93,41 @@ run_if_port_open() {
     return 1
 }
 
+# Function to run netexec with credentials or fallback attempts
+run_netexec_if_port_open() {
+    local module=$1
+    local ports=$2
+    local base_cmd=$3
+    local IFS=','
+    for port in $ports; do
+        if check_port "$IP" "$port"; then
+            echo "[+] Running netexec $module on port $port..."
+            # Check if credentials are provided
+            if [ -n "$USERNAME" ] && [ -n "$PASSWORD" ]; then
+                echo "[+] Trying provided credentials: $USERNAME"
+                cmd="$base_cmd -u '$USERNAME' -p '$PASSWORD' $DOMAIN_OPT"
+                eval "$cmd" | tee -a "$OUTPUT_DIR/netexec_${module}_provided-$port.output"
+            else
+                # Try blank username and password
+                echo "[+] Trying blank username and password"
+                cmd="$base_cmd -u '' -p '' $DOMAIN_OPT"
+                eval "$cmd" | tee -a "$OUTPUT_DIR/netexec_${module}_blank-$port.output"
+                # Try guest with blank password
+                echo "[+] Trying username 'guest' with blank password"
+                cmd="$base_cmd -u 'guest' -p '' $DOMAIN_OPT"
+                eval "$cmd" | tee -a "$OUTPUT_DIR/netexec_${module}_guest_blank-$port.output"
+                # Try guest with password 'guest'
+                echo "[+] Trying username 'guest' with password 'guest'"
+                cmd="$base_cmd -u 'guest' -p 'guest' $DOMAIN_OPT"
+                eval "$cmd" | tee -a "$OUTPUT_DIR/netexec_${module}_guest_guest-$port.output"
+            fi
+            return 0
+        fi
+    done
+    echo "[-] No open ports for netexec $module ($ports)"
+    return 1
+}
+
 # Function to run LDAP queries if LDAP is open
 run_ldap_queries() {
     local ldap_open=false
@@ -107,7 +142,7 @@ run_ldap_queries() {
             fi
             eval "$ldapsearch_cmd" | tee -a "$OUTPUT_DIR/ldapsearch-$port.output"
             # Run nmap rootdse script
-            nmap_cmd="nmap -sSV --script=ldap-rootdse -p $port $IP"
+            nmap_cmd="nmap --script=ldap-rootdse -p $port $IP"
             eval "$nmap_cmd" | tee -a "$OUTPUT_DIR/nmap-ldap-rootdse-$port.output"
         fi
     done
@@ -119,34 +154,25 @@ run_ldap_queries() {
 # Test connectivity
 test_connectivity "$IP"
 
-# Prepare netexec credentials
-NETEXEC_CREDS=""
-if [ -n "$USERNAME" ] && [ -n "$PASSWORD" ]; then
-    NETEXEC_CREDS="-u '$USERNAME' -p '$PASSWORD'"
-fi
-if [ -n "$DOMAIN" ]; then
-    NETEXEC_CREDS="$NETEXEC_CREDS $DOMAIN_OPT"
-fi
-
 # Run enum4linux
 run_if_port_open "enum4linux" "$SMB_PORTS" "enum4linux -a $IP"
 
 # Run enum4linux-ng
 run_if_port_open "enum4linux-ng" "$SMB_PORTS" "enum4linux-ng $IP"
 
-# Run netexec commands
-run_if_port_open "netexec_smb_shares" "$SMB_PORTS" "netexec smb $IP $NETEXEC_CREDS --shares"
-run_if_port_open "netexec_smb_rid" "$SMB_PORTS" "netexec smb $IP $NETEXEC_CREDS --rid-brute"
-run_if_port_open "netexec_smb_spider" "$SMB_PORTS" "netexec smb $IP $NETEXEC_CREDS --spider / --depth 5 --pattern *.txt,*.conf,*.ini,*.bak"
+# Run netexec commands with credential handling
+run_netexec_if_port_open "smb_shares" "$SMB_PORTS" "netexec smb $IP --shares"
+run_netexec_if_port_open "smb_rid" "$SMB_PORTS" "netexec smb $IP --rid-brute"
+run_netexec_if_port_open "smb_spider" "$SMB_PORTS" "netexec smb $IP --spider / --depth 5 --pattern *.txt,*.conf,*.ini,*.bak"
 
 # Run netexec LDAP module
-run_if_port_open "netexec_ldap" "$LDAP_PORTS" "netexec ldap $IP $NETEXEC_CREDS -M whoami -M domain-users"
+run_netexec_if_port_open "ldap" "$LDAP_PORTS" "netexec ldap $IP -M whoami -M domain-users"
 
 # Run netexec MSSQL module
-run_if_port_open "netexec_mssql" "$MSSQL_PORT" "netexec mssql $IP $NETEXEC_CREDS -M whoami -M databases"
+run_netexec_if_port_open "mssql" "$MSSQL_PORT" "netexec mssql $IP -M whoami -M databases"
 
 # Run netexec WinRM module
-run_if_port_open "netexec_winrm" "$WINRM_PORT" "netexec winrm $IP $NETEXEC_CREDS -M whoami -x 'whoami'"
+run_netexec_if_port_open "winrm" "$WINRM_PORT" "netexec winrm $IP -M whoami -x 'whoami'"
 
 # Run LDAP-specific queries
 run_ldap_queries
