@@ -1,4 +1,4 @@
-# Host Enumeration Bash Script
+# Active Directory Enumeration Bash Script
 
 This Bash wrapper script automates the enumeration of a single host using tools like `enum4linux`, `enum4linux-ng`, `netexec`, and LDAP query tools. It intelligently checks for open ports, tests connectivity, and runs enumeration commands only when relevant services (SMB, LDAP, MSSQL, WinRM) are available. The script supports optional credentials and domain input for authenticated enumeration and saves results in a structured output directory.
 
