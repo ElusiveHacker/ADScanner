@@ -37,3 +37,14 @@ sudo apt update
 sudo apt install enum4linux nmap ldap-utils
 pip install enum4linux-ng netexec# ADScanner
 Scanning ADs for CTFs
+```
+Clone the repository:
+```bash
+git clone https://github.com/<your-username>/host-enum-script.git
+cd ADScanner
+```
+Make the script executable:
+```bash
+chmod +x ADScanner.sh
+```
+
