@@ -165,6 +165,28 @@ run_netexec_if_port_open "smb_shares" "$SMB_PORTS" "netexec smb $IP --shares"
 run_netexec_if_port_open "smb_rid" "$SMB_PORTS" "netexec smb $IP --rid-brute"
 run_netexec_if_port_open "smb_spider" "$SMB_PORTS" "netexec smb $IP --spider / --depth 5 --pattern *.txt,*.conf,*.ini,*.bak"
 
+# Run netexec low privilege SMB modules
+low_priv_modules=(
+    "dfscoerce"
+    "drop-sc"
+    "enum_av"
+    "enum_ca"
+    "gpp_autologin"
+    "gpp_password"
+    "nopac"
+    "petitpotam"
+    "printnightmare"
+    "scuffy"
+    "shadowcoerce"
+    "spider_plus"
+    "spooler"
+    "webdav"
+    "zerologon"
+)
+for module in "${low_priv_modules[@]}"; do
+    run_netexec_if_port_open "smb_${module}" "$SMB_PORTS" "netexec smb $IP -M $module"
+done
+
 # Run netexec LDAP module
 run_netexec_if_port_open "ldap" "$LDAP_PORTS" "netexec ldap $IP -M whoami -M domain-users"
 
