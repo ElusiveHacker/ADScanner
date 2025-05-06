@@ -6,6 +6,7 @@ This Bash wrapper script automates the enumeration of a single host using tools 
 -  NetExec: https://pentesting.site/cheat-sheets/netexec/
 -  StationX: https://www.stationx.net/netexec-cheat-sheet/
 -  BlWasp: https://github.com/BlWasp/NetExec-Cheatsheet
+-  Netexec Wiki: https://www.netexec.wiki/getting-started/selecting-and-using-a-protocol
 
 ⚠️ **Important**: Use this script only with explicit permission to scan the target system. Unauthorized scanning may be illegal and violate network policies.
 
