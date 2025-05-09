@@ -298,6 +298,7 @@ low_priv_modules=(
     "spooler"
     "webdav"
     "zerologon"
+    "adcs"
 )
 for module in "${low_priv_modules[@]}"; do
     module_name=$(echo "$module" | cut -d' ' -f1)
@@ -340,6 +341,7 @@ ldap_modules=(
     "user-desc"
     "get-userPassword"
     "get-unixUserPassword"
+    "kdcHost"
 )
 for module in "${ldap_modules[@]}"; do
     run_netexec_if_port_open "ldap_${module}" "$LDAP_PORTS" "netexec ldap $IP -M $module" "false"
