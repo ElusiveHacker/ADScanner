@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Bash wrapper script for enumerating a single host using SMB, LDAP, MSSQL, and WinRM tools
+# Bash wrapper script for enumerating a single host using SMB, LDAP, MSSQL, WinRM, BloodHound, and Impacket tools
 # Outputs results to individual files and a consolidated report
 
 # Function to display usage
@@ -28,6 +28,7 @@ check_tool "enum4linux-ng"
 check_tool "netexec"
 check_tool "ldapsearch"
 check_tool "nmap"
+check_tool "impacket-GetUserSPNs"
 
 # Parse command-line arguments
 while getopts "i:u:p:d:" opt; do
@@ -42,17 +43,26 @@ while getopts "i:u:p:d:" opt; do
     esac
 done
 
-# Check if IP is provided
+# Check if IP is provided and sanitize inputs
 if [ -z "$IP" ]; then
     echo "Error: IP address is mandatory."
     usage
 fi
+IP=$(echo "$IP" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$')
+if [ -z "$IP" ]; then
+    echo "Error: Invalid IP address."
+    usage
+fi
+USERNAME=$(echo "$USERNAME" | tr -d ';&|')
+PASSWORD=$(echo "$PASSWORD" | tr -d ';&|')
+DOMAIN=$(echo "$DOMAIN" | tr -d ';&|')
 
 # Define common ports
 SMB_PORTS="137,138,139,445"
 LDAP_PORTS="389,636"
 MSSQL_PORT="1433"
 WINRM_PORT="5985,5986"
+KERBEROS_PORT="88"
 
 # Output directory and report file
 OUTPUT_DIR="enum_results_$IP"
@@ -81,15 +91,15 @@ append_to_report() {
 # Function to synchronize system clock with Active Directory domain controller
 sync_time_with_AD() {
     local host=$1
-    local ntp_tool="rdate"
+    local ntp_tool="ntpdate"
     local ntp_port=123
     local max_attempts=3
-    local attempt=3
+    local attempt=1
     local output=""
 
     # Check if ntpdate is installed
     if ! command -v "$ntp_tool" >/dev/null 2>&1; then
-        output="Error: $ntp_tool is not installed. Install it with 'sudo apt install ntpdate'."
+        output="Error: $ntp_tool is not installed. Install it with 'sudo apt install ntp'."
         echo "[-] $output"
         append_to_report "Clock Synchronization" "$output"
         return 1
@@ -118,7 +128,7 @@ sync_time_with_AD() {
     # Attempt time synchronization
     echo "[+] Synchronizing clock with $host using $ntp_tool..."
     while [ $attempt -le $max_attempts ]; do
-        output=$($sudo_cmd $ntp_tool -s "$host" 2>&1)
+        output=$($sudo_cmd $ntp_tool "$host" 2>&1)
         if [ $? -eq 0 ]; then
             output="Successfully synchronized clock with $host.\n$output"
             echo "[+] $output"
@@ -136,14 +146,14 @@ sync_time_with_AD() {
     return 1
 }
 
-# Function to check if a tcp port is open
+# Function to check if a TCP port is open
 check_tcp_port() {
     local host=$1
     local port=$2
     timeout 2 bash -c "echo > /dev/tcp/$host/$port" 2>/dev/null && return 0 || return 1
 }
 
-# Function to check if a tcp port is open
+# Function to check if a UDP port is open
 check_udp_port() {
     local host=$1
     local port=$2
@@ -173,7 +183,7 @@ run_if_port_open() {
     for port in $ports; do
         if check_tcp_port "$IP" "$port"; then
             echo "[+] Running $tool on port $port..."
-            output=$(eval "$cmd" 2>&1)
+            output=$($cmd 2>&1)
             echo "$output" | tee -a "$OUTPUT_DIR/$tool-$port.output"
             append_to_report "$tool (Port $port)" "$output"
             return 0
@@ -190,41 +200,40 @@ run_netexec_if_port_open() {
     local ports=$2
     local base_cmd=$3
     local high_priv=$4
+    local protocol=$5
     local display_module=${module#smb_}  # Remove smb_ prefix for report
     display_module=${display_module#ldap_}  # Remove ldap_ prefix for report
     local IFS=','
     for port in $ports; do
         if check_tcp_port "$IP" "$port"; then
-            echo "[+] Running netexec $display_module on port $port..."
-            # Check if credentials are provided
+            echo "[+] Running netexec $display_module on port $port (protocol: $protocol)..."
+            local kdc_opt=""
+            [ -n "$DOMAIN" ] && kdc_opt="--kdcHost $DOMAIN"
             if [ -n "$USERNAME" ] && [ -n "$PASSWORD" ]; then
                 echo "[+] Trying provided credentials: $USERNAME"
-                cmd="$base_cmd -u '$USERNAME' -p '$PASSWORD' $DOMAIN_OPT"
-                output=$(eval "$cmd" 2>&1)
+                cmd="$base_cmd -u '$USERNAME' -p '$PASSWORD' $DOMAIN_OPT $kdc_opt"
+                output=$(eval "$cmd" 2>&1 || echo "[-] NetExec failed for $display_module")
                 if [[ "$output" == *"STATUS_ACCESS_DENIED"* ]] && [ "$high_priv" == "true" ]; then
                     output="$output\n[!] Warning: High privilege module likely failed due to insufficient permissions."
                 fi
                 echo "$output" | tee -a "$OUTPUT_DIR/netexec_${module}_provided-$port.output"
-                append_to_report "NetExec $display_module (Provided Credentials, Port $port)" "$output"
+                append_to_report "NetExec $display_module (Provided Credentials, Port $port, Protocol: $protocol)" "$output"
             elif [ "$high_priv" != "true" ]; then
-                # Try blank username and password for low privilege modules
                 echo "[+] Trying blank username and password"
-                cmd="$base_cmd -u '' -p '' $DOMAIN_OPT"
-                output=$(eval "$cmd" 2>&1)
+                cmd="$base_cmd -u '' -p '' $DOMAIN_OPT $kdc_opt"
+                output=$(eval "$cmd" 2>&1 || echo "[-] NetExec failed for $display_module")
                 echo "$output" | tee -a "$OUTPUT_DIR/netexec_${module}_blank-$port.output"
-                append_to_report "NetExec $display_module (Blank Credentials, Port $port)" "$output"
-                # Try guest with blank password
+                append_to_report "NetExec $display_module (Blank Credentials, Port $port, Protocol: $protocol)" "$output"
                 echo "[+] Trying username 'guest' with blank password"
-                cmd="$base_cmd -u 'guest' -p '' $DOMAIN_OPT"
-                output=$(eval "$cmd" 2>&1)
+                cmd="$base_cmd -u 'guest' -p '' $DOMAIN_OPT $kdc_opt"
+                output=$(eval "$cmd" 2>&1 || echo "[-] NetExec failed for $display_module")
                 echo "$output" | tee -a "$OUTPUT_DIR/netexec_${module}_guest_blank-$port.output"
-                append_to_report "NetExec $display_module (Guest/Blank, Port $port)" "$output"
-                # Try guest with password 'guest'
+                append_to_report "NetExec $display_module (Guest/Blank, Port $port, Protocol: $protocol)" "$output"
                 echo "[+] Trying username 'guest' with password 'guest'"
-                cmd="$base_cmd -u 'guest' -p 'guest' $DOMAIN_OPT"
-                output=$(eval "$cmd" 2>&1)
+                cmd="$base_cmd -u 'guest' -p 'guest' $DOMAIN_OPT $kdc_opt"
+                output=$(eval "$cmd" 2>&1 || echo "[-] NetExec failed for $display_module")
                 echo "$output" | tee -a "$OUTPUT_DIR/netexec_${module}_guest_guest-$port.output"
-                append_to_report "NetExec $display_module (Guest/Guest, Port $port)" "$output"
+                append_to_report "NetExec $display_module (Guest/Guest, Port $port, Protocol: $protocol)" "$output"
             else
                 echo "[-] Skipping high privilege module $display_module (requires credentials)"
                 append_to_report "NetExec $display_module" "Skipped high privilege module (requires credentials)"
@@ -237,6 +246,46 @@ run_netexec_if_port_open() {
     return 1
 }
 
+# Function to run Kerberoasting with impacket-GetUserSPNs
+run_kerberoast() {
+    local output=""
+    if ! command -v impacket-GetUserSPNs >/dev/null 2>&1; then
+        output="Error: impacket-GetUserSPNs is not installed. Install it with 'sudo apt install python3-impacket' or 'pip3 install impacket'."
+        echo "[-] $output"
+        append_to_report "Kerberoast" "$output"
+        return 1
+    fi
+
+    if ! check_tcp_port "$IP" "$KERBEROS_PORT"; then
+        output="Error: Kerberos port $KERBEROS_PORT is not open on $IP. Skipping Kerberoast."
+        echo "[-] $output"
+        append_to_report "Kerberoast" "$output"
+        return 1
+    fi
+
+    if [ -z "$USERNAME" ] || [ -z "$PASSWORD" ] || [ -z "$DOMAIN" ]; then
+        output="Skipping Kerberoast: Username, password, and domain are required."
+        echo "[-] $output"
+        append_to_report "Kerberoast" "$output"
+        return 1
+    fi
+
+    echo "[+] Running Kerberoast with credentials: $USERNAME"
+    local output_file="$OUTPUT_DIR/kerberoast.output"
+    output=$(impacket-GetUserSPNs "$DOMAIN/$USERNAME:$PASSWORD" -dc-ip "$IP" -request 2>&1)
+    if [ $? -eq 0 ]; then
+        echo "$output" | tee -a "$output_file"
+        output="$output\n[+] Kerberoast output saved to $output_file"
+        append_to_report "Kerberoast" "$output"
+    else
+        output="$output\n[!] Warning: Kerberoast failed."
+        echo "[-] $output"
+        append_to_report "Kerberoast" "$output"
+        return 1
+    fi
+    return 0
+}
+
 # Function to run LDAP queries if LDAP is open
 run_ldap_queries() {
     local ldap_open=false
@@ -244,20 +293,25 @@ run_ldap_queries() {
         if check_tcp_port "$IP" "$port"; then
             ldap_open=true
             echo "[+] Running LDAP queries on port $port..."
-            # Try anonymous bind first
-            ldapsearch_cmd="ldapsearch -H ldap://$IP:$port -x -b '' -s base '(objectclass=*)' *"
+            local proto="ldap"
+            local ldap_options=""
+            if [ "$port" == "636" ]; then
+                proto="ldaps"
+                ldap_options="-ZZ"
+                export LDAPTLS_REQCERT=never
+            fi
+            ldapsearch_cmd="ldapsearch -H $proto://$IP:$port $ldap_options -x -b '' -s base '(objectclass=*)' *"
             output=$(eval "$ldapsearch_cmd" 2>&1)
             if [[ "$output" == *"Invalid credentials"* ]] && [ -n "$USERNAME" ] && [ -n "$PASSWORD" ]; then
                 echo "[+] Trying authenticated LDAP bind with provided credentials..."
-                ldapsearch_cmd="$ldapsearch_cmd -D '$USERNAME' -w '$PASSWORD'"
+                ldapsearch_cmd="ldapsearch -H $proto://$IP:$port $ldap_options -x -D '$USERNAME' -w '$PASSWORD' -b '' -s base '(objectclass=*)' *"
                 output=$(eval "$ldapsearch_cmd" 2>&1)
             fi
             if [[ "$output" == *"Can't contact LDAP server"* ]]; then
-                output="$output\n[!] Warning: LDAPS connection failed, check SSL/TLS configuration."
+                output="$output\n[!] Warning: $proto connection failed, check SSL/TLS configuration."
             fi
             echo "$output" | tee -a "$OUTPUT_DIR/ldapsearch-$port.output"
             append_to_report "ldapsearch (Port $port)" "$output"
-            # Run nmap rootdse script
             nmap_cmd="nmap --script=ldap-rootdse -p $port $IP"
             output=$(eval "$nmap_cmd" 2>&1)
             echo "$output" | tee -a "$OUTPUT_DIR/nmap-ldap-rootdse-$port.output"
@@ -277,15 +331,23 @@ test_connectivity "$IP"
 sync_time_with_AD "$IP" || echo "[!] Warning: Clock synchronization failed, some modules may not work."
 
 # Run enum4linux
-run_if_port_open "enum4linux" "$SMB_PORTS" "enum4linux -a $IP"
+if [ -n "$USERNAME" ] && [ -n "$PASSWORD" ]; then
+    run_if_port_open "enum4linux" "$SMB_PORTS" "enum4linux -a -u '$USERNAME' -p '$PASSWORD' $IP"
+else
+    run_if_port_open "enum4linux" "$SMB_PORTS" "enum4linux -a $IP"
+fi
 
 # Run enum4linux-ng
-run_if_port_open "enum4linux-ng" "$SMB_PORTS" "enum4linux-ng $IP"
+if [ -n "$USERNAME" ] && [ -n "$PASSWORD" ]; then
+    run_if_port_open "enum4linux-ng" "$SMB_PORTS" "enum4linux-ng -u '$USERNAME' -p '$PASSWORD' $IP"
+else
+    run_if_port_open "enum4linux-ng" "$SMB_PORTS" "enum4linux-ng $IP"
+fi
 
 # Run netexec commands with credential handling
-run_netexec_if_port_open "smb_shares" "$SMB_PORTS" "netexec smb $IP --shares" "false"
-run_netexec_if_port_open "smb_rid" "$SMB_PORTS" "netexec smb $IP --rid-brute" "false"
-run_netexec_if_port_open "smb_spider" "$SMB_PORTS" "netexec smb $IP --spider / --depth 5 --pattern *.txt,*.conf,*.ini,*.bak" "false"
+run_netexec_if_port_open "smb_shares" "$SMB_PORTS" "netexec smb $IP --shares" "false" "smb"
+run_netexec_if_port_open "smb_rid" "$SMB_PORTS" "netexec smb $IP --rid-brute" "false" "smb"
+run_netexec_if_port_open "smb_spider" "$SMB_PORTS" "netexec smb $IP --spider / --depth 5 --pattern *.txt,*.conf,*.ini,*.bak" "false" "smb"
 
 # Run netexec low privilege SMB modules
 low_priv_modules=(
@@ -294,45 +356,20 @@ low_priv_modules=(
     "enum_ca"
     "gpp_autologin"
     "gpp_password"
-    "nopac"
     "spooler"
     "webdav"
-    "zerologon"
-    "adcs"
 )
 for module in "${low_priv_modules[@]}"; do
     module_name=$(echo "$module" | cut -d' ' -f1)
-    run_netexec_if_port_open "smb_${module_name}" "$SMB_PORTS" "netexec smb $IP -M $module" "false"
+    run_netexec_if_port_open "smb_${module_name}" "$SMB_PORTS" "netexec smb $IP -M $module" "false" "smb"
 done
 
-# Run netexec high privilege SMB modules (only with provided credentials)
-# Excluded modules requiring options: keepass_trigger, rdp, wdigest
+# Run netexec high privilege LDAP module (daclread)
 high_priv_modules=(
-    "enum_dns"
-    "firefox"
-    "get_netconnections"
-    "handlekatz"
-    "hash_spider"
-    "iis"
-    "impersonate"
-    "install_elevated"
-    "lsassy"
-    "masky"
-    "msol"
-    "nanodump"
-    "ntdsutil"
-    "ntlmv1"
-    "pi"
-    "procdump"
-    "rdcman"
-    "reg-query"
-    "runasppl"
-    "uac"
-    "wcc"
-    "winscp"
+    "daclread -o TARGET=Administrator ACTION=read"
 )
 for module in "${high_priv_modules[@]}"; do
-    run_netexec_if_port_open "smb_${module}" "$SMB_PORTS" "netexec smb $IP -M $module" "true"
+    run_netexec_if_port_open "ldap_${module}" "$LDAP_PORTS" "netexec ldap $IP -M $module" "true" "ldap"
 done
 
 # Run netexec LDAP modules
@@ -341,17 +378,22 @@ ldap_modules=(
     "user-desc"
     "get-userPassword"
     "get-unixUserPassword"
-    "kdcHost"
+    "get-network"
+    "pso"
+    "pre2k"
 )
 for module in "${ldap_modules[@]}"; do
-    run_netexec_if_port_open "ldap_${module}" "$LDAP_PORTS" "netexec ldap $IP -M $module" "false"
+    run_netexec_if_port_open "ldap_${module}" "$LDAP_PORTS" "netexec ldap $IP -M $module" "false" "ldap"
 done
 
 # Run netexec MSSQL module
-run_netexec_if_port_open "mssql" "$MSSQL_PORT" "netexec mssql $IP -M whoami -M databases" "false"
+run_netexec_if_port_open "mssql" "$MSSQL_PORT" "netexec mssql $IP -M whoami -M databases" "false" "mssql"
 
 # Run netexec WinRM module
-run_netexec_if_port_open "winrm" "$WINRM_PORT" "netexec winrm $IP -M whoami -x 'whoami'" "false"
+run_netexec_if_port_open "winrm" "$WINRM_PORT" "netexec winrm $IP -M whoami -x 'whoami'" "false" "winrm"
+
+# Run Kerberoast
+run_kerberoast
 
 # Run LDAP-specific queries
 run_ldap_queries
