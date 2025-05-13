@@ -44,11 +44,9 @@ sudo ./ADScanner.sh -i <IP_ADDRESS> -u <USERNAME> -p <PASSWORD> -d <DOMAIN>
 ---
 ## 📁 Output
 
-    - Tool-specific outputs are saved in: tool_outputs/
-
-    - Consolidated log: ADScanner.log
-
-    - Final summary report: YYYYMMDD_HHMM_report.txt
+- Tool-specific outputs are saved in: tool_outputs/
+- Consolidated log: ADScanner.log
+- Final summary report: YYYYMMDD_HHMM_report.txt
 ---
 
 ## 📦 Requirements
