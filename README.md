@@ -29,6 +29,11 @@ A powerful Bash-based **Active Directory enumeration tool** designed for penetra
 
 ---
 
+## ⚙️ Usage 
+
+sudo ./ADScanner.sh -i <IP_ADDRESS> -u <USERNAME> -p <PASSWORD> -d <DOMAIN>
+---
+
 ## 📦 Requirements
 
 - Bash version **5.2.37**
