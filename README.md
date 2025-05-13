@@ -10,92 +10,47 @@ This Bash wrapper script automates the enumeration of a single host using tools 
 
 ⚠️ **Important**: Use this script only with explicit permission to scan the target system. Unauthorized scanning may be illegal and violate network policies.
 
-## Features
+# ADScanner.sh
 
-- **Mandatory Input**: Target IP address.
-- **Optional Inputs**: Username, password, and domain name for authenticated enumeration.
-- **Tool Validation**: Checks if required tools (`enum4linux`, `enum4linux-ng`, `netexec`, `ldapsearch`, `nmap`) are installed.
-- **Port Checking**: Scans for open ports (SMB: 137, 138, 139, 445; LDAP: 389, 636; MSSQL: 1433; WinRM: 5985, 5986) before running tools.
-- **Connectivity Testing**: Verifies host reachability using `ping`.
-- **NetExec Credential Handling**:
-  - Uses provided credentials if both username and password are specified.
-  - If no credentials are provided, attempts:
-    - Blank username and password.
-    - Username `guest` with blank password.
-    - Username `guest` with password `guest`.
-  - Includes domain name (if provided) in all `netexec` commands.
-- **Supported Tools**:
-  - `enum4linux -a`: Comprehensive SMB enumeration.
-  - `enum4linux-ng`: Modern SMB enumeration.
-  - `netexec smb`: Enumerates shares, RID brute-forcing, and spiders shares for files (e.g., `*.txt`, `*.conf`).
-  - `netexec ldap`, `mssql`, `winrm`: Runs specific modules if respective ports are open.
-  - `ldapsearch` and `nmap --script=ldap-rootdse`: Queries LDAP for hidden passwords and usernames when LDAP ports are open.
-- **Output Management**: Saves results in a directory (`enum_results_<IP>`) with separate files for each tool and credential attempt.
-- **Optimizations**: Limits scans to open ports, uses timeouts, and focuses on relevant file patterns for spidering.
+A powerful Bash-based **Active Directory enumeration tool** designed for penetration testers and red teamers. `ADScanner.sh` automates the enumeration of a Windows domain environment using tools like `netexec`, `enum4linux`, `impacket`, `nmap`, and others.
 
-## Prerequisites
+---
 
-- **Operating System**: Linux with Bash (tested on Ubuntu/Debian).
-- **Tools**:
-  - `enum4linux`
-  - `enum4linux-ng`
-  - `netexec` (formerly `crackmapexec`)
-  - `ldapsearch` (part of `ldap-utils`)
+## 🚀 Features
+
+- Auto-detects open ports using `nmap`
+- Modular execution based on open services
+- Supports SMB, LDAP, WinRM, MSSQL, FTP, SSH enumeration
+- Kerberoasting support using Impacket's `GetUserSPNs`
+- Output logs and reports organized in `tool_outputs/`
+- Consolidated report log
+- Quiet mode for cleaner output
+- Configurable via `config.sh` (optional)
+
+---
+
+## 📦 Requirements
+
+- Bash version **5.2.37**
+- Root privileges (`sudo`)
+- Tools:
   - `nmap`
-- **Dependencies**: Bash with `/dev/tcp` support for port checking.
-- **Permissions**: Run as a user with sufficient privileges for network scanning.
+  - `netexec` (successor of CrackMapExec)
+  - `enum4linux` and `enum4linux-ng`
+  - `impacket-GetUserSPNs`
+  - `ntpdate` (for clock sync)
+  - `smbclient` (optional fallback for time sync)
 
-## Install dependencies on Debian/Ubuntu:
+Ensure all tools are installed and in your `$PATH`.
+
+---
+
+## 🛠️ Installation
+
 ```bash
-sudo apt update
-sudo apt install enum4linux nmap ldap-utils
-pip install enum4linux-ng netexec# ADScanner
-Scanning ADs for CTFs
-```
-## Clone the repository:
-```bash
-git clone https://github.com/<your-username>/host-enum-script.git
-cd ADScanner
-```
-## Make the script executable:
-```bash
+git clone https://github.com/yourusername/ADScanner.sh.git
+cd ADScanner.sh
 chmod +x ADScanner.sh
-```
-## Usage
-
-### Run the script with the mandatory IP address and optional credentials/domain:
-
-`./ADScanner.sh -i <IP> [-u <username>] [-p <password>] [-d <domain>]`
-
-## Options
-
-- -i <IP>: Target IP address (mandatory).
-
-- -u <username>: Username for authenticated enumeration (optional).
-
-- -p <password>: Password for authenticated enumeration (optional).
-
-- -d <domain>: Domain name (e.g., EXAMPLE.COM) (optional).
-
-## Examples
-
-### Basic enumeration (no credentials):
-
-`sudo ./ADScanner.sh -i 192.168.1.100`
-
-### Authenticated enumeration with domain:
-
-`./ADScanner.sh -i 192.168.1.100 -u "admin" -p "Password123" -d "EXAMPLE.COM"`
-
-## Output
-
-Results are saved in a directory named enum_results_<IP> with files like:
-
-- enum4linux-445.output
-
-- netexec_smb_shares-445.output
-
-- ldapsearch-389.output
 
 ## Notes
 - The script assumes tools are in the system’s PATH.
