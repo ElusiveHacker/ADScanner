@@ -26,9 +26,17 @@ A powerful Bash-based **Active Directory enumeration tool** designed for penetra
 - Consolidated report log
 - Quiet mode for cleaner output
 - Configurable via `config.sh` (optional)
-
 ---
 
+| Option    | Description               |
+| --------- | ------------------------- |
+| `-i`      | Target IP address         |
+| `-u`      | Username                  |
+| `-p`      | Password                  |
+| `-d`      | Domain name               |
+| `--quiet` | Suppress output to stdout |
+
+---
 ## ⚙️ Usage 
 ```
 sudo ./ADScanner.sh -i <IP_ADDRESS> -u <USERNAME> -p <PASSWORD> -d <DOMAIN>
