@@ -3,7 +3,6 @@
 # ========================================================================================
 # ADScanner.sh - Active Directory Enumeration Script
 # GNU Bash 5.2.37(1)-release compatible
-# Author: ElusiveHacker
 # ========================================================================================
 
 # ------------------------------------
@@ -27,7 +26,7 @@ DATE_TIME="$(date +%Y%m%d_%H%M)"
 REPORT_FILE="$SCRIPT_DIR/${DATE_TIME}_report.txt"
 
 export IP=""
-export USERNAME=""
+export USERNAME=" "
 export PASSWORD=""
 export DOMAIN=""
 export QUIET_MODE=false
@@ -134,9 +133,9 @@ test_connectivity() {
 # Port Scanning
 # ------------------------------------
 scan_ports() {
-    local ports="$SMB_PORTS,$LDAP_PORTS,$MSSQL_PORT,$WINRM_PORTS,$KERBEROS_PORT,$SSH_PORT,$MYSQL_PORT,$HTTP_PORT,$HTTPS_PORT,$NFS_PORT,$FTP_PORT,$SSH_PORT"
-    log "INFO" "Scanning ports: $ports"
-    nmap -n -p "$ports" "$IP" -oG "$OUTPUT_DIR/nmap.output" --open > "$OUTPUT_DIR/nmap_grepable_summary.output"
+    local portsTCP="$SMB_PORTS,$LDAP_PORTS,$MSSQL_PORT,$WINRM_PORTS,$KERBEROS_PORT,$SSH_PORT,$MYSQL_PORT,$HTTP_PORT,$HTTPS_PORT,$NFS_PORT,$FTP_PORT"
+    log "INFO" "Scanning TCP ports: $portsTCP"
+    nmap -sS -n -p "$portsTCP" "$IP" -oG "$OUTPUT_DIR/nmap.output" --open > "$OUTPUT_DIR/nmap_grepable_summary.output"
     local result=$(cat "$OUTPUT_DIR/nmap_grepable_summary.output")
     append_to_report "Port Scan" "$result"
 
@@ -148,20 +147,70 @@ scan_ports() {
 # ------------------------------------
 # Clock Synchronization
 # ------------------------------------
+# Function to synchronize system clock with Active Directory domain controller
 sync_clock() {
-    if [[ -n "$DOMAIN" ]]; then
-        if command -v ntpdate > /dev/null; then
-            ntpdate "$DOMAIN" && log "INFO" "Clock synchronized with $DOMAIN" || log "ERROR" "Failed to sync with $DOMAIN"
-        elif command -v smbclient > /dev/null; then
-            smbclient -L "$IP" -U "$USERNAME%$PASSWORD" -W "$DOMAIN" -m SMB3 || log "ERROR" "smbclient time query failed"
-        else
-            log "INFO" "Clock sync tools unavailable. Skipping clock sync."
-        fi
-    else
-        log "INFO" "Domain not provided. Skipping clock synchronization."
-    fi
-}
+    local ntp_tool="ntpdate"
+    local ntp_port=123
+    local max_attempts=3
+    local attempt=1
+    local output=""
 
+    # Check if ntpdate is installed
+    if ! command -v "$ntp_tool" >/dev/null 2>&1; then
+        output="Error: $ntp_tool is not installed. Install it with 'sudo apt install ntp'."
+        echo "[-] $output"
+        append_to_report "Clock Synchronization" "$output"
+        return 1
+    fi
+
+    # Check if nc is installed for UDP port check
+    if ! command -v nc >/dev/null 2>&1; then
+        output="Error: netcat (nc) is not installed. Install it with 'sudo apt install netcat'."
+        echo "[-] $output"
+        append_to_report "Clock Synchronization" "$output"
+        return 1
+    fi
+
+    # Check if NTP UDP port is open
+    if ! nc -z -u -w 2 "$IP" "$ntp_port" >/dev/null 2>&1; then
+        output="Error: NTP port $ntp_port/UDP is not open on $IP. Time synchronization skipped."
+        echo "[-] $output"
+        append_to_report "Clock Synchronization" "$output"
+        return 1
+    fi
+
+    # Check if sudo is needed (non-root user)
+    local sudo_cmd=""
+    if [ "$(id -u)" -ne 0 ]; then
+        sudo_cmd="sudo"
+        if ! command -v sudo >/dev/null 2>&1 || ! $sudo_cmd -n true 2>/dev/null; then
+            output="Error: sudo is required for $ntp_tool but not available or not configured."
+            echo "[-] $output"
+            append_to_report "Clock Synchronization" "$output"
+            return 1
+        fi
+    fi
+
+    # Attempt time synchronization
+    echo "[+] Synchronizing clock with $IP using $ntp_tool..."
+    while [ $attempt -le $max_attempts ]; do
+        output=$($sudo_cmd $ntp_tool "$IP" 2>&1)
+        if [ $? -eq 0 ]; then
+            output="Successfully synchronized clock with $IP.\n$output"
+            echo "[+] $output"
+            append_to_report "Clock Synchronization" "$output"
+            return 0
+        fi
+        echo "[-] Attempt $attempt/$max_attempts failed: $output"
+        sleep 2
+        ((attempt++))
+    done
+
+    output="Error: Failed to synchronize clock with $IP after $max_attempts attempts.\nLast error: $output"
+    echo "[-] $output"
+    append_to_report "Clock Synchronization" "$output"
+    return 1
+}
 # ------------------------------------
 # Active Directory Enumeration
 # ------------------------------------
@@ -398,6 +447,8 @@ execute_impacket_getuserspns() {
         append_to_report "impacket-GetUserSPNs" "$OUT"
     fi
 }
+
+
 
 # ------------------------------------
 # Main Execution
