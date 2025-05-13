@@ -51,6 +51,7 @@ Ensure all tools are installed and in your `$PATH`.
 git clone https://github.com/yourusername/ADScanner.sh.git
 cd ADScanner.sh
 chmod +x ADScanner.sh
+```
 
 ## Notes
 - The script assumes tools are in the system’s PATH.
@@ -85,7 +86,8 @@ Contributions are welcome! Please:
 
 ## License
 This project is licensed under the Apache 2 License. See the LICENSE file for details.
-Disclaimer
+
+## Disclaimer
 This script is for educational and authorized testing purposes only. Unauthorized use against systems you do not own or have permission to scan may violate laws and policies. The author is not responsible for misuse or damages caused by this script.
 
 
