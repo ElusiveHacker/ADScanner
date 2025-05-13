@@ -449,7 +449,30 @@ execute_impacket_getuserspns() {
     fi
 }
 
-
+execute_ldapsearch() {
+    if ! command -v ldapsearch > /dev/null; then
+        log "ERROR" "ldapsearch is not installed"
+        return
+    fi
+    # Execution of ldapsearch:
+    if [[ "$OPEN_PORTS" == *"389"* || "$OPEN_PORTS" == *"636"* ]]; then
+	SEARCHES=("'(objectClass=user)' sAMAccountName cn userPrincipalName memberOf"
+    		  "'(objectClass=group)' sAMAccountName cn member"
+    		  "'(objectClass=computer)' sAMAccountName cn dNSHostName operatingSystem"
+    		  "'(servicePrincipalName=*)' sAMAccountName servicePrincipalName"
+    		  "'(objectClass=organizationalUnit)' name description"
+    		  "'(adminCount=1)' sAMAccountName cn memberOf"
+	)
+        for search in "${SEARCHES[@]}"; do
+            CMD="ldapsearch -x -H ldap://$IP -D '$USERNAME@$DOMAIN' -w '$PASSWORD' -b 'DC=${DOMAIN//./,DC=}' '(objectClass=user)' sAMAccountName"
+            [[ -z "$search" ]] || CMD+=" $search"
+            log "INFO" "Executing: $CMD"
+            OUT=$(eval $CMD 2>&1)
+            echo "$OUT" >> "$OUTPUT_DIR/ldapsearch.output"
+            append_to_report "ldapsearch $search" "$OUT"
+        done
+    fi
+}
 
 # ------------------------------------
 # Main Execution
@@ -470,6 +493,7 @@ main() {
     execute_netexec_mssql
     execute_netexec_ssh
     execute_netexec_ftp
+    execute_ldapsearch
     execute_impacket_getuserspns
 }
 
