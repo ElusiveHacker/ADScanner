@@ -3,17 +3,7 @@
 # ========================================================================================
 # ADScanner.sh - Active Directory Enumeration Script
 # GNU Bash 5.2.37(1)-release compatible
-# Author: ElusiveHacker
 # ========================================================================================
-
-# ------------------------------------
-# Version Check
-# ------------------------------------
-REQUIRED_VERSION="5.2.37"
-if ! [[ "$BASH_VERSION" =~ ^${REQUIRED_VERSION} ]]; then
-    echo "[!] Bash version $REQUIRED_VERSION is required. Current version: $BASH_VERSION"
-    exit 1
-fi
 
 # ------------------------------------
 # Global Variables and Defaults
@@ -96,6 +86,10 @@ parse_args() {
                 PASSWORD="$2"; shift 2;;
             -d)
                 DOMAIN="$2"; shift 2;;
+            -k)
+                KDCHOST="$2"; shift 2;;
+            -f)
+                ADFQDN="$2"; shift 2;;
             --quiet)
                 QUIET_MODE=true; shift;;
             *)
@@ -111,7 +105,7 @@ parse_args() {
     fi
 
     export IP USERNAME PASSWORD DOMAIN
-    log "INFO" "Inputs: IP=$IP USERNAME=$USERNAME PASSWORD=$PASSWORD DOMAIN=$DOMAIN"
+    log "INFO" "Inputs: IP=$IP USERNAME=$USERNAME PASSWORD=$PASSWORD DOMAIN=$DOMAIN  KDCHOST=$KDCHOST"
 }
 
 # ------------------------------------
@@ -216,8 +210,62 @@ sync_clock() {
 # Active Directory Enumeration
 # ------------------------------------
 
-# Netexec for SMB
-execute_netexec_smb() {
+# Netexec for SMB using NTLM kerberos authentication
+execute_netexec_smb_kerberos() {
+    if ! command -v netexec > /dev/null; then
+        log "ERROR" "netexec is not installed"
+        return
+    fi
+
+    # Ensure ADFQDN and KDCHOST are defined
+    if [[ -z "$ADFQDN" || -z "$KDCHOST" ]]; then
+        log "ERROR" "Skipping Kerberos netexec SMB test: ADFQDN or KDCHOST not provided"
+        return
+    fi
+
+    # Execution of netexec with modules (AD Vulnerability Assessment)
+    if [[ "$OPEN_PORTS" == *"88"* ]]; then
+        MODULES=(
+            "--shares"
+            "--users"
+            "--groups"
+            "--pass-pol"
+            "--local-group"
+            "--rid-brute"
+            "--delegate Administrator"
+            "-M gpp_password"
+            "-M coerce_plus"
+            "-M enum_av"
+            "-M enum_ca"
+            "-M gpp_autologin"
+            "-M spooler"
+            "-M webdav"
+            "-M veeam"
+            "-M zerologon"
+            "-M printnightmare"
+            "-M ms17-010"
+            "-M gpp_autologin"
+            "--sam"
+            "--lsa"
+            "--user $USERNAME"
+        )
+
+        for mod in "${MODULES[@]}"; do
+            CMD="netexec smb -k $ADFQDN"
+            [[ -n "$USERNAME" && -n "$PASSWORD" && -n "$DOMAIN" ]] && CMD+=" -u $USERNAME -p $PASSWORD -d $DOMAIN --kdcHost $KDCHOST"
+            CMD+=" $mod"
+            log "INFO" "Executing netexec with Kerberos: $CMD"
+            OUT=$(eval "$CMD" 2>&1)
+            echo "$OUT" >> "$OUTPUT_DIR/netexec_smb_kerberos.output"
+            append_to_report "netexec SMB $mod" "$OUT"
+        done
+    else
+        log "INFO" "Port 88 not open, skipping Kerberos netexec SMB execution."
+    fi
+}
+
+# Netexec for SMB using NTLM authentication
+execute_netexec_smb_ntlm() {
     if ! command -v netexec > /dev/null; then
         log "ERROR" "netexec is not installed"
         return
@@ -249,11 +297,11 @@ execute_netexec_smb() {
         	 )
         for mod in "${MODULES[@]}"; do
             CMD="netexec smb $IP"
-            [[ -n "$USERNAME" && -n "$PASSWORD" ]] && CMD+=" -u $USERNAME -p $PASSWORD"
+            [[ -n "$USERNAME" && -n "$PASSWORD" ]] && CMD+=" -u $USERNAME -p $PASSWORD -d $DOMAIN"
             CMD+=" $mod"
-            log "INFO" "Executing: $CMD"
+            log "INFO" "Executing netexec with NTLM: $CMD"
             OUT=$(eval $CMD 2>&1)
-            echo "$OUT" >> "$OUTPUT_DIR/netexec_smb.output"
+            echo "$OUT" >> "$OUTPUT_DIR/netexec_smb_ntlm.output"
             append_to_report "netexec SMB $mod" "$OUT"
         done
     fi
@@ -449,6 +497,22 @@ execute_impacket_getuserspns() {
     fi
 }
 
+# Test AD request ticket
+execute_impacket-getTGT() {
+    if ! command -v impacket-getTGT > /dev/null; then
+        log "ERROR" "impacket-getTGT is not installed"
+        return
+    fi
+    # Execution of impacket-GetUserSPNs:
+    if [[ "$OPEN_PORTS" == *"88"* || "$OPEN_PORTS" == *"88"* ]]; then
+        CMD="impacket-getTGT $DOMAIN/"$USERNAME":"$PASSWORD" -dc-ip $IP"
+        log "INFO" "Executing: $CMD"
+        OUT=$(eval $CMD 2>&1)
+        echo "$OUT" >> "$OUTPUT_DIR/impacket-getTGT.output"
+        append_to_report "impacket-getTGT" "$OUT"
+    fi
+}
+
 execute_ldapsearch() {
     if ! command -v ldapsearch > /dev/null; then
         log "ERROR" "ldapsearch is not installed"
@@ -487,7 +551,8 @@ main() {
     # AD Enumeration
     execute_enum4linux
     execute_enum4linux-ng
-    execute_netexec_smb
+    execute_netexec_smb_ntlm
+    execute_netexec_smb_kerberos
     execute_netexec_winrm
     execute_netexec_ldap
     execute_netexec_mssql
@@ -495,6 +560,7 @@ main() {
     execute_netexec_ftp
     execute_ldapsearch
     execute_impacket_getuserspns
+    execute_impacket_getTGT
 }
 
 main "$@"
