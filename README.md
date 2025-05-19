@@ -1,113 +1,137 @@
-# Active Directory Enumeration Bash Script
 
-This Bash wrapper script automates the enumeration of a single host using tools like `enum4linux`, `enum4linux-ng`, `netexec`, and LDAP query tools. It intelligently checks for open ports, tests connectivity, and runs enumeration commands only when relevant services (SMB, LDAP, MSSQL, WinRM) are available. The script supports optional credentials and domain input for authenticated enumeration and saves results in a structured output directory. This is very important, in order to increase speed in a CTF and even certificates, such as CREST Registered Tester and OSCP and OSCP+. Since all exames are not moving to proper Active Directory enumeration.
+# ADScanner.sh - Active Directory Enumeration Script
 
-## Cheetsheets used to write the tool
--  NetExec: https://pentesting.site/cheat-sheets/netexec/
--  StationX: https://www.stationx.net/netexec-cheat-sheet/
--  BlWasp: https://github.com/BlWasp/NetExec-Cheatsheet
--  Netexec Wiki: https://www.netexec.wiki/getting-started/selecting-and-using-a-protocol
-
-⚠️ **Important**: Use this script only with explicit permission to scan the target system. Unauthorized scanning may be illegal and violate network policies.
-
-# ADScanner.sh
-
-A powerful Bash-based **Active Directory enumeration tool** designed for penetration testers and red teamers. `ADScanner.sh` automates the enumeration of a Windows domain environment using tools like `netexec`, `enum4linux`, `impacket`, `nmap`, and others.
+`ADScanner.sh` is a powerful Bash script designed for Active Directory enumeration during internal penetration testing or red team engagements. It wraps and automates tools such as **netexec**, **Impacket**, and **nmap** to extract information, detect vulnerabilities, and streamline reporting.
 
 ---
 
 ## 🚀 Features
 
-- Auto-detects open ports using `nmap`
-- Modular execution based on open services
-- Supports SMB, LDAP, WinRM, MSSQL, FTP, SSH enumeration
-- Kerberoasting support using Impacket's `GetUserSPNs`
-- Output logs and reports organized in `tool_outputs/`
-- Consolidated report log
-- Quiet mode for cleaner output
-- Configurable via `config.sh` (optional)
----
-
-| Option    | Description               |
-| --------- | ------------------------- |
-| `-i`      | Target IP address         |
-| `-u`      | Username                  |
-| `-p`      | Password                  |
-| `-d`      | Domain name               |
-| `--quiet` | Suppress output to stdout |
-
----
-## ⚙️ Usage 
-```
-sudo ./ADScanner.sh -i <IP_ADDRESS> -u <USERNAME> -p <PASSWORD> -d <DOMAIN>
-```
----
-## 📁 Output
-
-- Tool-specific outputs are saved in: tool_outputs/
-- Consolidated log: ADScanner.log
-- Final summary report: YYYYMMDD_HHMM_report.txt
----
-
-## 📦 Requirements
-
-- Bash version **5.2.37**
-- Root privileges (`sudo`)
-- Tools:
-  - `nmap`
-  - `netexec` (successor of CrackMapExec)
-  - `enum4linux` and `enum4linux-ng`
-  - `impacket-GetUserSPNs`
-  - `ntpdate` (for clock sync)
-  - `smbclient` (optional fallback for time sync)
-
-Ensure all tools are installed and in your `$PATH`.
+- 🔐 SMB, LDAP, Kerberos, MSSQL, and WinRM enumeration via `netexec`
+- 🧰 Impacket tool integrations (Kerberoasting, AS-REP roasting, SID bruteforce, etc.)
+- 🔎 Nmap TCP port scanning with automatic module execution based on open ports
+- 📡 Host availability and time synchronization with domain controllers
+- 🧾 Log and structured report generation
+- 🧩 Configurable via `config.sh` (optional)
+- 🔕 Quiet mode for clean output in automation pipelines
 
 ---
 
-## 🛠️ Installation
+## 📦 Dependencies
+
+Make sure the following tools are installed:
+
+- `bash` (v5+ recommended)
+- `nmap`
+- `netexec` (preferred over `crackmapexec`)
+- `impacket` (Python-based tools like `GetUserSPNs.py`, `GetNPUsers.py`, etc.)
+- `ntpdate`
+- `nc` (netcat)
+
+---
+
+## 🛠️ Usage
 
 ```bash
-git clone https://github.com/yourusername/ADScanner.sh.git
-cd ADScanner.sh
-chmod +x ADScanner.sh
+sudo ./ADScanner.sh [options]
 ```
 
-## Notes
-- The script assumes tools are in the system’s PATH.
+### Options
 
-- Anonymous LDAP binds are attempted if no credentials are provided, which may yield limited results.
+| Flag          | Description                                      |
+|---------------|--------------------------------------------------|
+| `-i <IP>`     | Target Domain Controller IP (required)          |
+| `-u <USER>`   | Username for authentication (optional)          |
+| `-p <PASS>`   | Password for authentication (optional)          |
+| `-d <DOMAIN>` | Domain name (e.g., example.local) (optional)    |
+| `-k <KDCHOST>`| KDC hostname (for Kerberos auth) (optional)     |
+| `-f <ADFQDN>` | AD FQDN (Kerberos ticketing) (optional)         |
+| `--quiet`     | Quiet mode (minimal terminal output)            |
+| `-h, --help`  | Display help                                     |
 
-- Customize port lists or tool options (e.g., file patterns for netexec --spider) in the script as needed.
+### Example
 
-- Extend the script by adding tools like smbclient or additional netexec modules.
+```bash
+sudo ./ADScanner.sh -i 192.168.1.10 -u admin -p Passw0rd -d example.local -k dc.example.local -f example.local
+```
 
-## Troubleshooting
+---
 
-- Tool not found: Ensure all required tools are installed and accessible.
+## 🔍 Modules Executed
 
-- Port check fails: Verify network connectivity and firewall settings.
+### ✅ Netexec - SMB (NTLM & Kerberos)
 
-- Permission denied: Run the script with sudo if necessary for network operations.
+- User/group enumeration
+- Password policies
+- Vulnerability modules:
+  - `gpp_password`, `spooler`, `webdav`, `printnightmare`, `ms17-010`
+  - `zerologon`, `veeam`, `coerce_plus`, `enum_ca`, `enum_av`
+- Hash & secrets dumping (SAM, LSA, NTDS.dit)
 
-## Contributing
+### ✅ Netexec - LDAP
 
-Contributions are welcome! Please:
+- Trusts, sites, subnets, PSOs
+- LAPS retrieval
+- Password attribute hunting (`userPassword`, `unixUserPassword`)
+- Group membership
+- DACL read for privilege escalation
 
-- Fork the repository.
+### ✅ Impacket Integration
 
-- Create a feature branch (git checkout -b feature/YourFeature).
+The script automates execution of key Impacket tools when credentials are available:
 
-- Commit changes (git commit -m "Add YourFeature").
+| Tool                | Description                                              |
+|---------------------|----------------------------------------------------------|
+| `GetUserSPNs.py`    | Kerberoasting - lists SPNs with Kerberos auth enabled    |
+| `GetNPUsers.py`     | AS-REP Roasting (users with `Do not require preauth`)    |
+| `lookupsid.py`      | SID bruteforce and enumeration                           |
+| `samrdump.py`       | Dumps user/group info from DC over SMB                   |
+| `secretsdump.py`    | Dumps NTDS/SAM/LSA hashes (Admin required)               |
+| `wmiexec.py`        | Remote command execution via WMI                         |
 
-- Push to the branch (git push origin feature/YourFeature).
+Execution is conditional based on port availability and credentials.
 
-- Open a pull request.
+---
 
-## License
-This project is licensed under the Apache 2 License. See the LICENSE file for details.
+## 📁 Output
 
-## Disclaimer
-This script is for educational and authorized testing purposes only. Unauthorized use against systems you do not own or have permission to scan may violate laws and policies. The author is not responsible for misuse or damages caused by this script.
+- Tool results saved in `tool_outputs/`
+- Combined report: `YYYYMMDD_HHMM_report.txt`
+- Log file: `ADScanner.log`
 
+---
 
+## 🧩 Configuration
+
+You can create a `config.sh` file in the script directory to predefine values such as:
+
+```bash
+IP="192.168.1.10"
+USERNAME="admin"
+PASSWORD="Passw0rd"
+DOMAIN="example.local"
+KDCHOST="dc.example.local"
+ADFQDN="example.local"
+```
+
+---
+
+## ⚠️ Disclaimer
+
+This script is for **authorized security assessments** and **educational purposes only**. Unauthorized use is prohibited.
+
+---
+
+## 🧠 Credits
+
+- [Impacket](https://github.com/fortra/impacket)
+- [Netexec](https://github.com/Pennyw0rth/NetExec)
+- [Nmap](https://nmap.org)
+
+---
+
+## 🧪 To Do
+
+- Add BloodHound data collection support
+- LDAP brute-force options
+- HTML report output
