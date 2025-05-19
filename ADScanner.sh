@@ -92,9 +92,12 @@ parse_args() {
                 ADFQDN="$2"; shift 2;;
             --quiet)
                 QUIET_MODE=true; shift;;
+            -h|--help|help)
+            print_help;;
             *)
-                log "ERROR" "Unknown argument: $1"
-                exit 1;;
+            log "ERROR" "Unknown argument: $1"
+            print_help
+            exit 1;;
         esac
     done
 
@@ -106,6 +109,29 @@ parse_args() {
 
     export IP USERNAME PASSWORD DOMAIN
     log "INFO" "Inputs: IP=$IP USERNAME=$USERNAME PASSWORD=$PASSWORD DOMAIN=$DOMAIN  KDCHOST=$KDCHOST"
+}
+
+print_help() {
+    cat << EOF
+Usage: $0 [options]
+
+Active Directory Enumeration Script
+
+Options:
+  -i <IP>           Target IP address of the Domain Controller (required)
+  -u <USERNAME>     Username for authentication (optional)
+  -p <PASSWORD>     Password for authentication (optional)
+  -d <DOMAIN>       Domain name (e.g., example.local) (optional)
+  -k <KDCHOST>      KDC hostname for Kerberos authentication (optional)
+  -f <ADFQDN>       AD FQDN required for Kerberos ticketing (optional)
+  --quiet           Suppress most terminal output (optional)
+  -h, --help        Show this help message and exit
+
+Example:
+  sudo ./ADScanner.sh -i 192.168.1.10 -u admin -p Passw0rd -d example.local -k dc.example.local -f example.local
+
+EOF
+    exit 0
 }
 
 # ------------------------------------
@@ -542,8 +568,8 @@ execute_ldapsearch() {
 # Main Execution
 # ------------------------------------
 main() {
-    check_root # Check if script is running as root
     parse_args "$@"
+    check_root # Check if script is running as root
     test_connectivity "$IP" # Check if target is running and is accessible 
     scan_ports # Get open ports
     sync_clock # Sync clock for kerberoasting attacks
