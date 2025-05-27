@@ -575,10 +575,12 @@ main() {
     test_connectivity "$IP"
     scan_ports
     sync_clock
-    # Enum shares
+    # Enum AD shares
     execute_smbmap
+    # Enum all AD
     execute_enum4linux
     execute_enum4linux-ng
+    # Targeted enum of AD
     execute_netexec_smb_ntlm
     execute_netexec_smb_kerberos
     execute_netexec_winrm
