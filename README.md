@@ -43,7 +43,6 @@ sudo ./ADScanner.sh [options]
 | `-p`         | Password                                     |
 | `-d`         | Domain name                                  |
 | `-o`         | Output directory (optional)                  |
-| `--fullscan` | Enables all modules (SMB, LDAP, MSSQL, etc.) |
 | `-v`         | Verbose mode                                 |
 | `-q`         | Quiet mode                                   |
 
