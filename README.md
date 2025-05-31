@@ -47,3 +47,10 @@ sudo ./ADScanner.sh [options]
 | `-v`         | Verbose mode                                 |
 | `-q`         | Quiet mode                                   |
 
+# Install dependencies (example for Debian-based distros)
+```bash
+sudo apt update
+sudo apt install nmap ntpdate ldap-utils jq python3-impacket bloodhound-python
+pip install git+https://github.com/byt3bl33d3r/CrackMapExec.git
+```
+
