@@ -34,3 +34,15 @@
 
 ```bash
 sudo ./ADScanner.sh [options]
+
+| Flag         | Description                                  |
+| ------------ | -------------------------------------------- |
+| `-t`         | Target IP or hostname (required)             |
+| `-u`         | Username                                     |
+| `-p`         | Password                                     |
+| `-d`         | Domain name                                  |
+| `-o`         | Output directory (optional)                  |
+| `--fullscan` | Enables all modules (SMB, LDAP, MSSQL, etc.) |
+| `-v`         | Verbose mode                                 |
+| `-q`         | Quiet mode                                   |
+
