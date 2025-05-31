@@ -34,6 +34,7 @@
 
 ```bash
 sudo ./ADScanner.sh [options]
+```
 
 | Flag         | Description                                  |
 | ------------ | -------------------------------------------- |
