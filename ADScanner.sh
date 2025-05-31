@@ -44,6 +44,22 @@ NFS_PORT="2049"
 FTP_PORT="21"
 
 # ------------------------------------
+# Ascii Art
+# ------------------------------------
+ascii_art() {
+    # Define ANSI color codes
+    local CYAN="\033[93m"
+    local RESET="\033[0m"
+
+    # Print the ASCII art in yellow
+    echo -e "\n"
+    echo -ne "${CYAN}"
+    echo -ne "ICAgICAvXCAgIHwgIF9fIFwgLyBfX19ffCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgIC8gIFwgIHwgfCAgfCB8IChfX18gICBfX18gX18gXyBfIF9fICBfIF9fICAgX19fIF8gX18gICAgICAgICAgICAKICAgLyAvXCBcIHwgfCAgfCB8XF9fXyBcIC8gX18vIF9gIHwgJ18gXHwgJ18gXCAvIF8gXCAnX198ICAgICAgICAgICAKICAvIF9fX18gXHwgfF9ffCB8X19fXykgfCAoX3wgKF98IHwgfCB8IHwgfCB8IHwgIF9fLyB8ICAgICAgICAgICAgICAKIC9fL19fX19cX1xfX19fXy98X19fX18vIFxfX19cX18sX3xffCB8X3xffCB8X3xcX19ffF98ICAgICAgICAgICAgICAKIHwgIF9fX198IHwgICAgICAgICAoXykgICAgICAgICAgIHwgfCAgfCB8ICAgICAgICAgIHwgfCAgICAgICAgICAgICAKIHwgfF9fICB8IHxfICAgXyBfX18gX19fICAgX19fX18gIHwgfF9ffCB8IF9fIF8gIF9fX3wgfCBfX19fXyBfIF9fICAKIHwgIF9ffCB8IHwgfCB8IC8gX198IFwgXCAvIC8gXyBcIHwgIF9fICB8LyBfYCB8LyBfX3wgfC8gLyBfIFwgJ19ffCAKIHwgfF9fX198IHwgfF98IFxfXyBcIHxcIFYgLyAgX18vIHwgfCAgfCB8IChffCB8IChfX3wgICA8ICBfXy8gfCAgICAKIHxfX19fX198X3xcX18sX3xfX18vX3wgXF8vIFxfX198IHxffCAgfF98XF9fLF98XF9fX3xffFxfXF9fX3xffCAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA=" | base64 -d
+    echo -ne "${RESET}"
+    echo -e "\n"
+}
+
+# ------------------------------------
 # Logging Functions
 # ------------------------------------
 log() {
@@ -230,9 +246,61 @@ sync_clock() {
 }
 
 # ------------------------------------
+# Kerberos Configuration
+# ------------------------------------
+init_kerberos() {
+    # Check if DOMAIN and ADFQDN are set
+    if [[ -z "$DOMAIN" || -z "$ADFQDN" ]]; then
+        log "ERROR" "DOMAIN or ADFQDN not set. Cannot initialize Kerberos configuration."
+        return 1
+    fi
+
+    # Convert DOMAIN to uppercase for Kerberos realm (standard convention)
+    local KERBEROS_REALM
+    KERBEROS_REALM=$(echo "$DOMAIN" | tr '[:lower:]' '[:upper:]')
+
+    # Backup existing krb5.conf if it exists
+    if [[ -f "/etc/krb5.conf" ]]; then
+        cp /etc/krb5.conf /etc/krb5.conf.bak
+        log "INFO" "Backed up existing /etc/krb5.conf to /etc/krb5.conf.bak"
+    fi
+
+    # Write new krb5.conf
+    log "INFO" "Writing Kerberos configuration to /etc/krb5.conf"
+    cat > /etc/krb5.conf << EOF
+[libdefaults]
+    default_realm = $KERBEROS_REALM
+    dns_lookup_realm = false
+    dns_lookup_kdc = false
+    ticket_lifetime = 24h
+    renew_lifetime = 7d
+    forwardable = true
+
+[realms]
+    $KERBEROS_REALM = {
+        kdc = $ADFQDN:88
+        admin_server = $ADFQDN:749
+        default_domain = $DOMAIN
+    }
+
+[domain_realm]
+    .$DOMAIN = $KERBEROS_REALM
+    $DOMAIN = $KERBEROS_REALM
+EOF
+
+    if [[ $? -eq 0 ]]; then
+        log "INFO" "Successfully wrote /etc/krb5.conf with realm $KERBEROS_REALM and KDC $ADFQDN"
+        append_to_report "Kerberos Configuration" "Initialized /etc/krb5.conf with realm $KERBEROS_REALM and KDC $ADFQDN"
+        return 0
+    else
+        log "ERROR" "Failed to write /etc/krb5.conf"
+        return 1
+    fi
+}
+
+# ------------------------------------
 # Active Directory Enumeration
 # ------------------------------------
-
 execute_netexec_smb_kerberos() {
     if ! command -v netexec >/dev/null 2>&1; then
         log "ERROR" "netexec is not installed"
@@ -488,29 +556,6 @@ execute_enum4linux-ng() {
     fi
 }
 
-execute_smbmap() {
-    if ! command -v smbmap >/dev/null 2>&1; then
-        log "ERROR" "smbmap is not installed"
-        return
-    fi
-    if [[ "$OPEN_PORTS" == *"445"* ]]; then
-        MODULES=(
-            "-u null"
-            "-R"
-            "-A '(xml|xlsx|docx|txt|xml|ini|backup)'"
-        )
-        for mod in "${MODULES[@]}"; do
-            CMD="smbmap -H '$IP'"
-            [[ -n "$USERNAME" && -n "$PASSWORD" ]] && CMD+=" -u '$USERNAME' -p '$PASSWORD' -d '$DOMAIN'"
-            CMD+=" $mod"
-            log "INFO" "Executing: $CMD"
-            OUT=$(eval "$CMD" 2>&1)
-            echo "$OUT" >> "$OUTPUT_DIR/smbmap.output"
-            append_to_report "smbmap $mod" "$OUT"
-        done
-    fi
-}
-
 execute_impacket_getuserspns() {
     if ! command -v impacket-GetUserSPNs >/dev/null 2>&1; then
         log "ERROR" "impacket-GetUserSPNs is not installed"
@@ -570,13 +615,14 @@ execute_ldapsearch() {
 # Main Execution
 # ------------------------------------
 main() {
+    ascii_art
     parse_args "$@"
     check_root
     test_connectivity "$IP"
     scan_ports
     sync_clock
-    # Enum AD shares
-    execute_smbmap
+    # Initialize Kerberos configuration before any Kerberos-dependent operations
+    init_kerberos
     # Enum all AD
     execute_enum4linux
     execute_enum4linux-ng
