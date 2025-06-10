@@ -38,15 +38,16 @@
 sudo ./ADScanner.sh -i <IP> -u <useranem> -p <password> -d <domain> -f <fqdn>
 ```
 
-| Flag         | Description                                  |
-| ------------ | -------------------------------------------- |
-| `-t`         | Target IP or hostname (required)             |
-| `-u`         | Username                                     |
-| `-p`         | Password                                     |
-| `-d`         | Domain name                                  |
-| `-o`         | Output directory (optional)                  |
-| `-v`         | Verbose mode                                 |
-| `-q`         | Quiet mode                                   |
+| Flag         | Description                                                     |
+| ------------ | ----------------------------------------------------------------|
+| `-i <IP>`    | Target IP address of the Domain Controller (required)           |
+| `-u`         | Username for authentication (optional)                          |
+| `-p`         | Password for authentication (optional)                          |
+| `-d`         | Domain name e.g., example.local (optional)                      |
+| `-k`         | KDC hostname for Kerberos authentication (required for kerberos)|
+| `-f`         | AD FQDN required for Kerberos ticketing (required for kerberos) |
+| `--quiet`         | Suppress most terminal output (optional)                   |
+| ` -h, --help` | Show this help message and exit |
 
 ## Install dependencies (example for Debian-based distros)
 ```bash
