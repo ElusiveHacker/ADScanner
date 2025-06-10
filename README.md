@@ -35,7 +35,7 @@
 ## 🚀 Usage
 
 ```bash
-sudo ./ADScanner.sh -i <IP> -u <useranem> -p <password> -d <domain> -f <fqdn>
+sudo ./ADScanner.sh -i <IP> -u <Username> -p <Password> -d <Domain> -f <FQDN> -k <KDC hostname>
 ```
 
 | Flag         | Description                                                     |
