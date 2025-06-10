@@ -25,6 +25,8 @@
 - `netexec` (formerly `crackmapexec`)
 - `ntpdate`
 - `netcat`
+- `impacket`
+- `ldapsearch`
 - Root access (or `sudo`)
 - (Optional) `config.sh` for persistent configuration
 
